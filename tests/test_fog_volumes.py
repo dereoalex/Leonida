@@ -178,6 +178,22 @@ class FogVolumesTests(unittest.TestCase):
             self.assertEqual(doc["offset_range"], ["0x10", "0x10"])
             self.assertEqual(doc["position_offset_nonzero"], 1)
 
+    def test_parallel_scan_finds_zlib_headers_at_chunk_edges(self):
+        boundary = 4 * 1024 * 1024
+        compressed = zlib.compress(build_synthetic_fog_0x7a([{}]))
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "edge.rpf")
+            for offset in (boundary - 2, boundary - 1, boundary):
+                with self.subTest(offset=offset):
+                    with open(path, "wb") as f:
+                        f.write(b"9FPR")
+                        f.seek(offset)
+                        f.write(compressed)
+                    serial = fv.summarize(path, jobs=1)
+                    self.assertEqual(serial["resources"], 1)
+                    self.assertEqual(serial["scanned_0x7a_complete"], 1)
+                    self.assertEqual(fv.summarize(path, jobs=2), serial)
+
     def test_large_resource_exceeding_256kib_and_dedup(self):
         # 520 * 512 = 266,240 bytes (> 256 KiB): exercises uncapped 0x7a inflation and distinct record counting.
         base_vols = [

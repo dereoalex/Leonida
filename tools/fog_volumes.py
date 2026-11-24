@@ -176,9 +176,11 @@ def _scan_rpf_chunk(args: tuple[str, int, int]) -> tuple[list[int], int, int]:
     incomplete_0x7a = 0
     with open(path, "rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as m:
         size = len(m)
+        # The two-byte header can start at end - 1, which belongs to this chunk.
+        header_end = min(size, end + 1)
         pos = start
         while pos < end:
-            mt = ZHDR.search(m, pos, end)
+            mt = ZHDR.search(m, pos, header_end)
             if not mt:
                 break
             off = mt.start()
