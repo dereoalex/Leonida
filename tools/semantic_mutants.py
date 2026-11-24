@@ -211,6 +211,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--timeout", type=int, default=300, help="seconds per test run (default 300)")
     ap.add_argument("--list", action="store_true", help="only list the mutants")
     args = ap.parse_args(argv)
+    if not args.list and not os.path.isfile(args.test_file):
+        ap.error(f"test file is not a regular file: {args.test_file}")
 
     src_path = os.path.join(ROOT, "tools", TRANSLATOR)
     with open(src_path, encoding="utf-8", newline="") as f:

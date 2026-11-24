@@ -92,8 +92,10 @@ class Tables(unittest.TestCase):
 
     def test_table_only_op_on_the_real_translator(self):
         # v_rsq_f32 is translated through the F1 table, with no `if op` branch of its own.
-        p = subprocess.run([sys.executable, "-I", TOOL, os.path.join(ROOT, "tests", "semantic", "test_ps_semantics.py"),
-                            "--op", "v_rsq_f32", "--list"], capture_output=True, text=True, timeout=120)
+        with tempfile.TemporaryDirectory() as tmp:
+            test = os.path.join(tmp, "test_ps_semantics.py")
+            p = subprocess.run([sys.executable, "-I", TOOL, test, "--op", "v_rsq_f32", "--list"],
+                               capture_output=True, text=True, timeout=120)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertIn('table entry "v_rsq_f32": "InverseSqrt" -> "Sqrt"', p.stdout)
 
@@ -164,6 +166,17 @@ class EndToEnd(unittest.TestCase):
         code, out = self.run_tool(STRONG_EXTRA, main_block=False)
         self.assertNotEqual(code, 2, out)
         self.assertRegex(out, r"caught\s+line \d+: last operand \{ya\} -> \{xa\}")
+
+    def test_missing_file_does_not_run_a_same_named_semantic_test(self):
+        line = self.umax_line()
+        with tempfile.TemporaryDirectory() as tmp:
+            # unittest can import the real semantic test by basename, even though this path is absent.
+            test = os.path.join(tmp, "test_ps_semantics.py")
+            p = subprocess.run([sys.executable, "-I", TOOL, test, "--lines", f"{line}-{line}"],
+                               capture_output=True, text=True, timeout=120)
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn(f"test file is not a regular file: {test}", p.stderr)
+        self.assertEqual(p.stdout, "")
 
     def test_file_with_no_tests_is_a_baseline_error(self):
         line = self.umax_line()
