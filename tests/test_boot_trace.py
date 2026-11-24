@@ -186,6 +186,31 @@ class BootTraceTests(unittest.TestCase):
         self.assertIn("debug strings: 1", text)
         self.assertNotIn("secret game text", text)
 
+    def test_invalid_startup_event_kinds_are_counted_as_bad_lines(self):
+        self.write(self.startup, [
+            {"kind": "future_event"},
+            {"kind": None},
+            {"kind": []},
+            {"kind": 42},
+            {"kind": ""},
+            {"kind": "exit", "code": 0},
+        ])
+        trace = bt.parse_startup(self.startup)
+        self.assertEqual(trace["events"], 2)
+        self.assertEqual(trace["bad_lines"], 4)
+        self.assertEqual(trace["bad_line_numbers"], [2, 3, 4, 5])
+        self.assertEqual(trace["kinds"], {"future_event": 1, "exit": 1})
+        self.assertEqual(trace["exit"], 0)
+
+    def test_invalid_startup_event_kinds_alone_are_an_error(self):
+        self.write(self.startup, [{"kind": None}, {"kind": ""}])
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            result = bt.main([self.startup, "--counts-only"])
+        self.assertEqual(result, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(stderr.getvalue(), "error: startup trace unavailable\n")
+
     def test_truncated_line_is_counted_not_fatal(self):
         self.write(self.startup, STARTUP)
         with open(self.startup, "a", encoding="utf-8") as f:
