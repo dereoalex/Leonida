@@ -91,6 +91,31 @@ class ManifestTest(unittest.TestCase):
         return subprocess.run([sys.executable, "-I", TOOL, *args], capture_output=True,
                               text=True, errors="replace", timeout=60)
 
+    def test_case_only_bank_names_emit_identical_bytes_for_reversed_walks(self):
+        fixture = self.write_bank("fixture.awc", with_music=False)
+        names = ["bank.awc", "Bank.awc"]
+        parse_bank = awc_manifest._bank_rows
+        outputs = {"csv": [], "json": []}
+        # Model distinct paths even on a case-insensitive filesystem. Decode a real synthetic bank for each.
+        with mock.patch.object(awc_manifest, "_bank_rows", side_effect=lambda _path, name: parse_bank(fixture, name)):
+            for index, files in enumerate((names, names[::-1])):
+                with mock.patch.object(awc_manifest.os, "walk", return_value=[(self.tmp.name, [], files)]):
+                    banks, rows, streamed = awc_manifest.collect(self.tmp.name)
+                self.assertEqual(banks, 2)
+                self.assertEqual(streamed, 0)
+                for fmt, blobs in outputs.items():
+                    out = Path(self.tmp.name, f"manifest-{index}.{fmt}")
+                    awc_manifest.write_manifest(rows, banks, streamed, fmt, out)
+                    blobs.append(out.read_bytes())
+
+        for fmt, blobs in outputs.items():
+            with self.subTest(format=fmt):
+                self.assertEqual(blobs[0], blobs[1])
+        doc = json.loads(outputs["json"][0])
+        self.assertEqual([(row["bank"], row["stream"]) for row in doc["streams"]],
+                         [(bank, stream) for stream in ("00000010", "00000020", "00000030")
+                          for bank in ("Bank.awc", "bank.awc")])
+
     def test_csv_rows_codecs_and_bad_bank_skip(self):
         bank = self.write_bank()
         with open(os.path.join(self.tmp.name, "bad.awc"), "wb") as f:

@@ -181,7 +181,7 @@ def collect(src: str, *, out: str | None = None):
             parsed += 1
         except (ValueError, struct.error, IndexError) as e:
             print(f"awc_manifest: warning: skipping {path}: {e}", file=sys.stderr)
-    rows.sort(key=lambda r: (r["bank"].lower(), int(r["stream"], 16)))
+    rows.sort(key=lambda r: (r["bank"].lower(), int(r["stream"], 16), r["bank"]))
     return parsed, rows, sum(1 for r in rows if r["streamed_music"])
 
 
