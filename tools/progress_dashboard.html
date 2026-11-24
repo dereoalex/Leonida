@@ -428,7 +428,17 @@ function exportCsv() {
   const rows = [["id", "panel", "group", "name", "status", "freshness", "detail"]];
   for (const c of SNAP.components.filter(matches)) rows.push([c.id, c.panel, c.group, c.name, c.status, c.freshness || "", c.detail || ""]);
   const csv = rows.map((r) => r.map((v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v)).join(",")).join("\r\n");
-  const a = el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: "leonida_progress.csv" }); document.body.append(a); a.click(); a.remove();
+  const a = el("a", { download: "leonida_progress.csv" });
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  try {
+    a.href = url;
+    document.body.append(a);
+    a.click();
+  } finally {
+    a.remove();
+    // Give the browser time to start the download before revoking its URL.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 }
 
 for (const p of SNAP.panels) makePanel(p);
